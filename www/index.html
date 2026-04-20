@@ -161,31 +161,45 @@
             padding: 15px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 15px;
             border: 1px solid rgba(255,255,255,0.02);
         }
 
-        .control-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .control-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 10px;
-            flex-wrap: wrap;
+            padding: 12px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .control-group-title {
+            grid-column: 1 / -1;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: -2px;
+            font-weight: bold;
         }
 
         .btn {
             background: var(--btn-bg);
             color: white;
             border: 1px solid rgba(255,255,255,0.05);
-            padding: 10px 15px;
-            border-radius: 10px;
+            padding: 10px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             transition: all 0.2s;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
+            width: 100%;
         }
 
         .btn:hover:not(:disabled) {
@@ -351,11 +365,7 @@
         </p>
     </div>
 
-    <!-- Modal for image -->
-    <div id="imageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; align-items: center; justify-content: center;">
-        <iframe src="https://www.catalunya.com/es/continguts/territori/mora-debre-2-1-430939" style="width: 100%; height: 100%; border: none;"></iframe>
-        <button id="closeModalBtn" style="position: absolute; bottom: 30px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.5); padding: 15px 30px; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 1.2rem; backdrop-filter: blur(5px);">Cerrar</button>
-    </div>
+    <!-- El modal ha sido eliminado por petición de abrir web externa -->
 
     <h1>🥁 Drumbox</h1>
     
@@ -364,8 +374,8 @@
             <!-- Los pads se generan por JS -->
         </div>
 
-        <div class="controls">
-            <div class="control-row">
+            <div class="control-group">
+                <div class="control-group-title">Audio y Micrófono</div>
                 <div class="file-input-wrapper">
                     <button class="btn" onclick="document.getElementById('fileInput').click()">
                         <span style="font-size:1.2em">📁</span> Cargar Audio
@@ -373,24 +383,27 @@
                     <!-- Acepta todos los formatos de audio estandar soportados por el navegador -->
                     <input type="file" id="fileInput" accept="audio/*">
                 </div>
-                
                 <button id="recordBtn" class="btn record">
                     <span style="font-size:1.2em">🎤</span> Grabar Mic
                 </button>
                 <button id="stopBtn" class="btn" disabled>
-                    <span style="font-size:1.2em">⏹</span> Detener Mic
+                    <span style="font-size:1.2em">⏹</span> Parar Mic
                 </button>
+            </div>
+
+            <div class="control-group">
+                <div class="control-group-title">Looper / Secuenciador</div>
                 <button id="recordSeqBtn" class="btn record">
                     <span style="font-size:1.2em">⏺️</span> Grabar Loop
                 </button>
                 <button id="playSeqBtn" class="btn" disabled>
-                    <span style="font-size:1.2em">▶️</span> Reproducir Loop
+                    <span style="font-size:1.2em">▶️</span> Reproducir
                 </button>
                 <button id="tempoBtn" class="btn">
                     <span style="font-size:1.2em">⏱️</span> Tempo: 5
                 </button>
                 <button id="recordLoopBtn" class="btn record">
-                    <span style="font-size:1.2em">💾</span> Guardar Audio
+                    <span style="font-size:1.2em">💾</span> Descargar
                 </button>
             </div>
 
@@ -445,12 +458,12 @@
             'z': 12, 'x': 13, 'c': 14, 'v': 15
         };
 
-        // Sonidos por defecto (Kit estándar + voces líricas)
+        // Sonidos por defecto (Heavy Metal Kit)
         const defaultSounds = [
-            'kick.wav', 'kick2.wav', 'snare.wav', 'snare2.wav',
-            'hihat.wav', 'hihat2.wav', 'openhat.wav', 'openhat2.wav',
-            'tom.wav', 'tom2.wav', 'boom.wav', 'lirica1.wav',
-            'lirica2.wav', 'lirica3.wav', 'lirica4.wav', 'lirica5.wav'
+            'heavy_kick.wav', 'heavy_snare.wav', 'heavy_hihat.wav', 'heavy_crash.wav',
+            'bass_e.wav', 'bass_a.wav', 'bass_d.wav', 'bass_g.wav',
+            'guitar_power.wav', 'guitar_mute.wav', 'guitar_lead.wav', 'guitar_slide.wav',
+            'voice_scream.wav', 'voice_growl.wav', 'voice_yeah.wav', 'voice_grunt.wav'
         ];
 
         async function initAudio() {
@@ -603,12 +616,7 @@
         // Eventos
         document.getElementById('moraLink').addEventListener('click', (e) => {
             e.stopPropagation();
-            document.getElementById('imageModal').style.display = 'flex';
-        });
-
-        document.getElementById('closeModalBtn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.getElementById('imageModal').style.display = 'none';
+            window.open('https://www.catalunya.com/es/continguts/territori/mora-debre-2-1-430939', '_blank');
         });
 
         document.getElementById('startBtn').addEventListener('click', () => {
