@@ -352,7 +352,7 @@
 
     <!-- Modal for image -->
     <div id="imageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; align-items: center; justify-content: center;">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/M%C3%B3ra_d%27Ebre_-_pont_i_poble.JPG/800px-M%C3%B3ra_d%27Ebre_-_pont_i_poble.JPG" alt="Puente de Mora d'Ebre" style="width: 100%; height: 100%; object-fit: contain;">
+        <img src="assets/puente_mora.jpg" alt="Puente de Mora d'Ebre" style="width: 100%; height: 100%; object-fit: contain;">
         <button id="closeModalBtn" style="position: absolute; bottom: 30px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.5); padding: 15px 30px; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 1.2rem; backdrop-filter: blur(5px);">Cerrar</button>
     </div>
 
@@ -377,13 +377,19 @@
                     <span style="font-size:1.2em">🎤</span> Grabar Micrófono
                 </button>
                 <button id="stopBtn" class="btn" disabled>
-                    <span style="font-size:1.2em">⏹</span> Detener
+                    <span style="font-size:1.2em">⏹</span> Detener Mic
                 </button>
-                <button id="loopBtn" class="btn">
-                    <span style="font-size:1.2em">🔁</span> Loop
+                <button id="recordSeqBtn" class="btn record">
+                    <span style="font-size:1.2em">⏺️</span> Grabar Secuencia
+                </button>
+                <button id="playSeqBtn" class="btn" disabled>
+                    <span style="font-size:1.2em">▶️</span> Loop
+                </button>
+                <button id="tempoBtn" class="btn">
+                    <span style="font-size:1.2em">⏱️</span> Tempo: 5
                 </button>
                 <button id="recordLoopBtn" class="btn record">
-                    <span style="font-size:1.2em">⏺️</span> Grabar Loop
+                    <span style="font-size:1.2em">💾</span> Guardar Loop
                 </button>
             </div>
 
@@ -420,8 +426,14 @@
         let streamDest = null;
         let loopRecorder = null;
         let loopChunks = [];
-        let loopInterval = null;
-        let isLooping = false;
+        
+        let sequence = [];
+        let isRecordingSequence = false;
+        let sequenceStartTime = 0;
+        let sequenceDuration = 0;
+        let isPlayingSequence = false;
+        let sequenceTimeouts = [];
+        let tempoLevel = 5;
 
         // Nuevo mapeo de teclado: matriz 4x4 (1234, qwer, asdf, zxcv)
         const keyMap = {
@@ -543,6 +555,10 @@
             void pad.offsetWidth; // Trigger reflow para reiniciar animación
             pad.classList.add('active');
             setTimeout(() => pad.classList.remove('active'), 150);
+
+            if (isRecordingSequence) {
+                sequence.push({ index: index, time: Date.now() - sequenceStartTime });
+            }
         }
 
         function loadAudioFile(file, targetIndex = null) {
@@ -652,29 +668,91 @@
             }
         });
 
-        document.getElementById('loopBtn').addEventListener('click', () => {
-            if (!audioContext) return;
-            isLooping = !isLooping;
-            const btn = document.getElementById('loopBtn');
-            if (isLooping) {
+        function getTempoMultiplier() {
+            return 0.5 + (tempoLevel * 0.1);
+        }
+
+        function playSequenceLoop() {
+            if (!isPlayingSequence || sequence.length === 0) return;
+            let multiplier = getTempoMultiplier();
+            let duration = sequenceDuration / multiplier;
+            if (duration < 500) duration = 500;
+            
+            sequence.forEach(note => {
+                let playTime = note.time / multiplier;
+                let t = setTimeout(() => {
+                    if (isPlayingSequence) {
+                        playPad(note.index);
+                        selectPad(note.index);
+                    }
+                }, playTime);
+                sequenceTimeouts.push(t);
+            });
+
+            let nextLoop = setTimeout(playSequenceLoop, duration);
+            sequenceTimeouts.push(nextLoop);
+        }
+
+        function stopSequencePlay() {
+            isPlayingSequence = false;
+            sequenceTimeouts.forEach(t => clearTimeout(t));
+            sequenceTimeouts = [];
+        }
+
+        document.getElementById('recordSeqBtn').addEventListener('click', () => {
+            const btn = document.getElementById('recordSeqBtn');
+            if (!isRecordingSequence) {
+                isRecordingSequence = true;
+                sequence = [];
+                sequenceStartTime = Date.now();
+                btn.classList.add('recording');
+                btn.innerHTML = '<span style="font-size:1.2em">⏹️</span> Detener Secuencia';
+                updateStatus('Grabando secuencia (toca los pads)...');
+                stopSequencePlay();
+                document.getElementById('playSeqBtn').disabled = true;
+            } else {
+                isRecordingSequence = false;
+                sequenceDuration = Date.now() - sequenceStartTime;
+                btn.classList.remove('recording');
+                btn.innerHTML = '<span style="font-size:1.2em">⏺️</span> Grabar Secuencia';
+                
+                if (sequence.length > 0) {
+                    updateStatus(`Secuencia guardada (${sequence.length} toques)`);
+                    document.getElementById('playSeqBtn').disabled = false;
+                } else {
+                    updateStatus('Secuencia vacía');
+                }
+            }
+        });
+
+        document.getElementById('playSeqBtn').addEventListener('click', () => {
+            if (sequence.length === 0) return;
+            const btn = document.getElementById('playSeqBtn');
+            if (!isPlayingSequence) {
+                isPlayingSequence = true;
                 btn.style.background = 'var(--accent-color)';
                 btn.style.color = '#000';
-                updateStatus('Loop activado');
-                
-                // Generar un ritmo aleatorio con los pads que tienen sonido
-                loopInterval = setInterval(() => {
-                    const availablePads = buffers.map((b, i) => b ? i : -1).filter(i => i !== -1);
-                    if(availablePads.length > 0) {
-                        const randomPad = availablePads[Math.floor(Math.random() * availablePads.length)];
-                        playPad(randomPad);
-                        selectPad(randomPad);
-                    }
-                }, 250); // 16ths at 60BPM approx
+                btn.innerHTML = '<span style="font-size:1.2em">⏹️</span> Parar Loop';
+                updateStatus('Reproduciendo loop...');
+                playSequenceLoop();
             } else {
+                stopSequencePlay();
                 btn.style.background = 'var(--btn-bg)';
                 btn.style.color = 'white';
-                updateStatus('Loop desactivado');
-                clearInterval(loopInterval);
+                btn.innerHTML = '<span style="font-size:1.2em">▶️</span> Loop';
+                updateStatus('Loop detenido');
+            }
+        });
+
+        document.getElementById('tempoBtn').addEventListener('click', () => {
+            tempoLevel++;
+            if (tempoLevel > 10) tempoLevel = 1;
+            document.getElementById('tempoBtn').innerHTML = `<span style="font-size:1.2em">⏱️</span> Tempo: ${tempoLevel}`;
+            
+            if (isPlayingSequence) {
+                stopSequencePlay();
+                isPlayingSequence = true;
+                playSequenceLoop();
             }
         });
 
