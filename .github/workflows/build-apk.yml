@@ -1,0 +1,59 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build APK
+        run: cd android && ./gradlew assembleDebug
+
+      - name: Rename APK
+        run: mv android/app/build/outputs/apk/debug/app-debug.apk drumbox.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drumbox-apk
+          path: drumbox.apk
+
+      - name: Create Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: drumbox.apk
+          tag_name: "v1.0.${{ github.run_number }}"
+          name: "Drumbox v1.0.${{ github.run_number }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

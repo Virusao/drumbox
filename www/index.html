@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Drumbox - Premium Drum Pad</title>
+    <style>
+        :root {
+            --bg-color: #0f1115;
+            --panel-bg: #1a1d24;
+            --accent-color: #00e5ff;
+            --text-main: #ffffff;
+            --text-dim: #8b92a5;
+            --pad-bg: #222631;
+            --pad-border: #333947;
+            --pad-active: #00e5ff;
+            --btn-bg: #2a2e39;
+            --btn-hover: #3d4351;
+            --record-color: #ff3366;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(0, 229, 255, 0.05), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(255, 51, 102, 0.05), transparent 25%);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 30px;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff 0%, #aaa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 680px;
+            background: var(--panel-bg);
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Grid de Pads */
+        .pads-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .pad {
+            aspect-ratio: 1;
+            background: var(--pad-bg);
+            border: 2px solid var(--pad-border);
+            border-radius: 16px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2), inset 0 2px 0 rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+
+        .pad::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .pad:hover::before {
+            opacity: 1;
+        }
+
+        .pad:active, .pad.active {
+            background: var(--pad-active);
+            border-color: var(--pad-active);
+            transform: scale(0.92);
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.4);
+        }
+
+        .pad:active .pad-name, .pad.active .pad-name,
+        .pad:active .pad-number, .pad.active .pad-number {
+            color: #000;
+        }
+
+        .pad.selected {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.3);
+        }
+
+        .pad.occupied::after {
+            content: '';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #00ff88;
+            box-shadow: 0 0 8px #00ff88;
+        }
+
+        .pad-number {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            font-weight: 600;
+            pointer-events: none;
+            transition: color 0.1s;
+        }
+
+        .pad-name {
+            font-size: 0.75rem;
+            color: var(--text-main);
+            margin-top: 8px;
+            font-weight: 500;
+            max-width: 90%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            pointer-events: none;
+            transition: color 0.1s;
+        }
+
+        /* Controles */
+        .controls {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border: 1px solid rgba(255,255,255,0.02);
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: var(--btn-bg);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--btn-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.record {
+            background: rgba(255, 51, 102, 0.1);
+            color: var(--record-color);
+            border-color: rgba(255, 51, 102, 0.3);
+        }
+
+        .btn.record:hover:not(:disabled) {
+            background: rgba(255, 51, 102, 0.2);
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.3);
+        }
+
+        .btn.record.recording {
+            background: var(--record-color);
+            color: white;
+            animation: pulseRecord 1.5s infinite;
+        }
+
+        @keyframes pulseRecord {
+            0% { box-shadow: 0 0 0 0 rgba(255, 51, 102, 0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 51, 102, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 51, 102, 0); }
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .status-panel {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px 20px;
+            border-radius: 10px;
+            border-left: 4px solid var(--accent-color);
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-panel span.highlight {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+
+        .volume-control label {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: #333947;
+            outline: none;
+            border-radius: 2px;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--text-main);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255,255,255,0.3);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .shortcuts {
+            margin-top: 25px;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            text-align: center;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+
+        .key {
+            background: #2a2e39;
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #3d4351;
+            color: var(--text-main);
+            font-weight: 600;
+            margin: 0 2px;
+        }
+
+        /* Pantalla de Carga Inicial */
+        #initOverlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 17, 21, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #00e5ff, #0077ff);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 229, 255, 0.3);
+            transition: all 0.3s;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(0, 229, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="initOverlay">
+        <h1 style="margin-bottom: 40px; font-size: 3rem;">🥁 Drumbox</h1>
+        <button class="start-btn" id="startBtn">TOCAR PARA EMPEZAR</button>
+    </div>
+
+    <h1>🥁 Drumbox</h1>
+    
+    <div class="container">
+        <div class="pads-grid" id="padsContainer">
+            <!-- Los pads se generan por JS -->
+        </div>
+
+        <div class="controls">
+            <div class="control-row">
+                <div class="file-input-wrapper">
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">
+                        <span style="font-size:1.2em">📁</span> Cargar Audio
+                    </button>
+                    <!-- Acepta todos los formatos de audio estandar soportados por el navegador -->
+                    <input type="file" id="fileInput" accept="audio/*">
+                </div>
+                
+                <button id="recordBtn" class="btn record">
+                    <span style="font-size:1.2em">🎤</span> Grabar Micrófono
+                </button>
+                <button id="stopBtn" class="btn" disabled>
+                    <span style="font-size:1.2em">⏹</span> Detener
+                </button>
+            </div>
+
+            <div class="volume-control">
+                <label>Volumen</label>
+                <input type="range" id="volumeSlider" min="0" max="100" value="80">
+                <span id="volumeValue" style="color: var(--text-main); font-weight: 600; min-width: 40px; text-align: right;">80%</span>
+            </div>
+
+            <div class="status-panel">
+                <div>Pad seleccionado: <span id="selectedPad" class="highlight">Pad 1</span></div>
+                <div id="statusText">Listo para tocar</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="shortcuts">
+        Atajos de teclado: 
+        <span class="key">1</span>-<span class="key">4</span> &nbsp;
+        <span class="key">Q</span>-<span class="key">R</span> &nbsp;
+        <span class="key">A</span>-<span class="key">F</span> &nbsp;
+        <span class="key">Z</span>-<span class="key">V</span>
+    </div>
+
+    <script>
+        const TOTAL_PADS = 16;
+        let audioContext = null;
+        let masterGain = null;
+        let buffers = new Array(TOTAL_PADS).fill(null);
+        let padNames = new Array(TOTAL_PADS).fill('Vacío');
+        let selectedPadIndex = 0;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // Nuevo mapeo de teclado: matriz 4x4 (1234, qwer, asdf, zxcv)
+        const keyMap = {
+            '1': 0, '2': 1, '3': 2, '4': 3,
+            'q': 4, 'w': 5, 'e': 6, 'r': 7,
+            'a': 8, 's': 9, 'd': 10, 'f': 11,
+            'z': 12, 'x': 13, 'c': 14, 'v': 15
+        };
+
+        // Sonidos por defecto (Kit estándar 808/909 style)
+        const defaultSounds = [
+            'kick.wav', 'kick2.wav', 'snare.wav', 'snare2.wav',
+            'hihat.wav', 'hihat2.wav', 'openhat.wav', 'openhat2.wav',
+            'tom.wav', 'tom2.wav', 'boom.wav', 'tink.wav',
+            'clap.wav', 'clap2.wav', 'ride.wav', 'ride2.wav'
+        ];
+
+        async function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioContext.createGain();
+                masterGain.connect(audioContext.destination);
+                masterGain.gain.value = 0.8;
+                await loadDefaultKit();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        async function loadDefaultKit() {
+            updateStatus('Cargando kit por defecto...');
+            const fetchPromises = defaultSounds.map(async (soundFile, index) => {
+                try {
+                    const response = await fetch('assets/sounds/' + soundFile);
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    const arrayBuffer = await response.arrayBuffer();
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    buffers[index] = audioBuffer;
+                    padNames[index] = soundFile.replace('.wav', '');
+                    updatePadUI(index, padNames[index], true);
+                } catch (err) {
+                    console.log('No se pudo cargar ' + soundFile, err);
+                }
+            });
+
+            await Promise.allSettled(fetchPromises);
+            updateStatus('¡Kit cargado y listo!');
+        }
+
+        function updatePadUI(index, name, isOccupied) {
+            const pad = document.querySelector(`[data-index="${index}"]`);
+            if(isOccupied) pad.classList.add('occupied');
+            const nameEl = document.getElementById(`name-${index}`);
+            nameEl.textContent = name;
+            nameEl.title = name;
+        }
+
+        // Crear pads
+        const padsContainer = document.getElementById('padsContainer');
+        for (let i = 0; i < TOTAL_PADS; i++) {
+            const pad = document.createElement('div');
+            pad.className = 'pad';
+            pad.dataset.index = i;
+            pad.innerHTML = `
+                <span class="pad-number">${i + 1}</span>
+                <span class="pad-name" id="name-${i}">Vacío</span>
+            `;
+            
+            // Eventos táctiles y ratón
+            pad.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                if(audioContext) {
+                    if (buffers[i]) playPad(i);
+                    selectPad(i);
+                }
+            });
+            pad.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if(audioContext) {
+                    if (buffers[i]) playPad(i);
+                    selectPad(i);
+                }
+            });
+
+            // Drag & drop
+            pad.addEventListener('dragover', (e) => e.preventDefault());
+            pad.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('audio/')) {
+                    loadAudioFile(file, i);
+                }
+            });
+
+            padsContainer.appendChild(pad);
+        }
+
+        function selectPad(index) {
+            document.querySelectorAll('.pad').forEach(p => p.classList.remove('selected'));
+            selectedPadIndex = index;
+            const pad = document.querySelector(`[data-index="${index}"]`);
+            pad.classList.add('selected');
+            document.getElementById('selectedPad').textContent = `Pad ${index + 1}`;
+        }
+
+        function playPad(index) {
+            if (!audioContext || !buffers[index]) return;
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = buffers[index];
+            source.connect(masterGain);
+            source.start(0);
+
+            const pad = document.querySelector(`[data-index="${index}"]`);
+            pad.classList.remove('active');
+            void pad.offsetWidth; // Trigger reflow para reiniciar animación
+            pad.classList.add('active');
+            setTimeout(() => pad.classList.remove('active'), 150);
+        }
+
+        function loadAudioFile(file, targetIndex = null) {
+            const reader = new FileReader();
+            updateStatus(`Cargando ${file.name}...`);
+            reader.onload = (e) => {
+                const arrayBuffer = e.target.result;
+                audioContext.decodeAudioData(arrayBuffer, 
+                    (audioBuffer) => {
+                        let index = targetIndex !== null ? targetIndex : selectedPadIndex;
+                        buffers[index] = audioBuffer;
+                        
+                        let shortName = file.name.substring(0, 12);
+                        if(file.name.length > 12) shortName += '...';
+                        padNames[index] = shortName;
+                        
+                        updatePadUI(index, shortName, true);
+                        updateStatus(`Audio asignado al Pad ${index + 1}`);
+                        playPad(index); 
+                    },
+                    (error) => {
+                        updateStatus('Error al leer audio.');
+                        console.error(error);
+                    }
+                );
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Eventos
+        document.getElementById('startBtn').addEventListener('click', () => {
+            initAudio().then(() => {
+                document.getElementById('initOverlay').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('initOverlay').style.display = 'none';
+                }, 500);
+            });
+        });
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) loadAudioFile(file);
+            e.target.value = '';
+        });
+
+        // Grabación
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+
+        recordBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        audioContext.decodeAudioData(e.target.result, (audioBuffer) => {
+                            let targetIndex = buffers.findIndex(b => b === null);
+                            if (targetIndex === -1) targetIndex = selectedPadIndex;
+
+                            buffers[targetIndex] = audioBuffer;
+                            padNames[targetIndex] = 'Grabación';
+                            
+                            updatePadUI(targetIndex, '🔴 Mic', true);
+                            selectPad(targetIndex);
+                            updateStatus(`Grabación lista en Pad ${targetIndex + 1}`);
+                            playPad(targetIndex);
+                        });
+                    };
+                    reader.readAsArrayBuffer(blob);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                recordBtn.disabled = true;
+                recordBtn.classList.add('recording');
+                stopBtn.disabled = false;
+                updateStatus('Grabando... Habla al micrófono');
+            } catch (err) {
+                alert('No se pudo acceder al micrófono');
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                recordBtn.disabled = false;
+                recordBtn.classList.remove('recording');
+                stopBtn.disabled = true;
+            }
+        });
+
+        document.getElementById('volumeSlider').addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById('volumeValue').textContent = val + '%';
+            if (masterGain) masterGain.gain.value = val / 100;
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || !audioContext) return;
+            const key = e.key.toLowerCase();
+            if (keyMap.hasOwnProperty(key)) {
+                const index = keyMap[key];
+                if (buffers[index]) playPad(index);
+                selectPad(index);
+            }
+        });
+
+        function updateStatus(text) {
+            document.getElementById('statusText').textContent = text;
+        }
+
+        selectPad(0);
+    </script>
+</body>
+</html>

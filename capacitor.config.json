@@ -1,0 +1,6 @@
+{
+  "appId": "com.virusao.drumbox",
+  "appName": "drumbox",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
