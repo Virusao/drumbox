@@ -116,6 +116,18 @@
             color: #000;
         }
 
+        .pad.loop-active {
+            background: rgba(0, 229, 255, 0.15);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.4), inset 0 0 20px rgba(0, 229, 255, 0.2);
+        }
+
+        .pad.loop-active .pad-name, .pad.loop-active .pad-number {
+            color: #00e5ff;
+            text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+            font-weight: bold;
+        }
+
         .pad.selected {
             border-color: var(--accent-color);
             box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.3);
@@ -392,18 +404,12 @@
             </div>
 
             <div class="control-group">
-                <div class="control-group-title">Looper / Secuenciador</div>
-                <button id="recordSeqBtn" class="btn record">
-                    <span style="font-size:1.2em">⏺️</span> Grabar Loop
-                </button>
-                <button id="playSeqBtn" class="btn" disabled>
-                    <span style="font-size:1.2em">▶️</span> Reproducir
-                </button>
+                <div class="control-group-title">Control de Mezcla</div>
                 <button id="tempoBtn" class="btn">
                     <span style="font-size:1.2em">⏱️</span> Tempo: 5
                 </button>
                 <button id="recordLoopBtn" class="btn record">
-                    <span style="font-size:1.2em">💾</span> Descargar
+                    <span style="font-size:1.2em">💾</span> Descargar Mix
                 </button>
             </div>
 
@@ -441,14 +447,8 @@
         let loopRecorder = null;
         let loopChunks = [];
         
-        let sequence = [];
-        let isRecordingSequence = false;
-        let sequenceStartTime = 0;
-        let sequenceDuration = 0;
-        let isPlayingSequence = false;
-        let sequenceTimeouts = [];
+        let activeLoopSources = new Array(TOTAL_PADS).fill(null);
         let tempoLevel = 5;
-        let loopStartTime = 0;
 
         // Nuevo mapeo de teclado: matriz 4x4 (1234, qwer, asdf, zxcv)
         const keyMap = {
@@ -483,6 +483,12 @@
 
         async function loadDefaultKit() {
             updateStatus('Cargando kit por defecto...');
+            // Llenar nombres inmediatamente, incluso si no hay archivo
+            for(let i=0; i<TOTAL_PADS; i++) {
+                padNames[i] = defaultSounds[i].replace('.wav', '').replace('_', ' ');
+                updatePadUI(i, padNames[i], false);
+            }
+
             const fetchPromises = defaultSounds.map(async (soundFile, index) => {
                 try {
                     const response = await fetch('assets/sounds/' + soundFile);
@@ -557,33 +563,50 @@
             document.getElementById('selectedPad').textContent = `Pad ${index + 1}`;
         }
 
-        function playPad(index, isFromSequencer = false) {
-            if (!audioContext || !buffers[index]) return;
+        function getTempoMultiplier() {
+            return 0.5 + (tempoLevel * 0.1);
+        }
+
+        function playPad(index) {
+            if (!audioContext) return;
             
+            const pad = document.querySelector(`[data-index="${index}"]`);
+            
+            // Si ya está sonando en bucle, lo detenemos
+            if (activeLoopSources[index]) {
+                try { activeLoopSources[index].stop(); } catch(e){}
+                activeLoopSources[index] = null;
+                pad.classList.remove('loop-active');
+                return;
+            }
+
+            // Si el botón no tiene audio cargado, creamos un sonido sintético temporal
+            if (!buffers[index]) {
+                const osc = audioContext.createOscillator();
+                osc.type = index < 4 ? 'square' : index < 8 ? 'sawtooth' : index < 12 ? 'triangle' : 'sine';
+                osc.frequency.value = 55 + (index * 20); // Frecuencia diferente para cada uno
+                
+                const oscGain = audioContext.createGain();
+                oscGain.gain.value = 0.1;
+                osc.connect(oscGain);
+                oscGain.connect(masterGain);
+                
+                osc.start();
+                activeLoopSources[index] = osc;
+                pad.classList.add('loop-active');
+                return;
+            }
+            
+            // Si tiene buffer cargado, se reproduce en bucle continuo
             const source = audioContext.createBufferSource();
             source.buffer = buffers[index];
+            source.loop = true; // Bucle infinito
+            source.playbackRate.value = getTempoMultiplier();
             source.connect(masterGain);
             source.start(0);
 
-            const pad = document.querySelector(`[data-index="${index}"]`);
-            pad.classList.remove('active');
-            void pad.offsetWidth; // Trigger reflow para reiniciar animación
-            pad.classList.add('active');
-            setTimeout(() => pad.classList.remove('active'), 150);
-
-            if (!isFromSequencer) {
-                if (isRecordingSequence) {
-                    sequence.push({ index: index, time: Date.now() - sequenceStartTime });
-                } else if (isPlayingSequence) {
-                    // Overdub: Añadir al loop activo
-                    let multiplier = getTempoMultiplier();
-                    let duration = sequenceDuration / multiplier;
-                    if (duration < 500) duration = 500;
-                    let loopPos = (Date.now() - loopStartTime) % duration;
-                    let originalTime = loopPos * multiplier;
-                    sequence.push({ index: index, time: originalTime });
-                }
-            }
+            activeLoopSources[index] = source;
+            pad.classList.add('loop-active');
         }
 
         function loadAudioFile(file, targetIndex = null) {
@@ -688,93 +711,16 @@
             }
         });
 
-        function getTempoMultiplier() {
-            return 0.5 + (tempoLevel * 0.1);
-        }
-
-        function playSequenceLoop() {
-            if (!isPlayingSequence || sequence.length === 0) return;
-            let multiplier = getTempoMultiplier();
-            let duration = sequenceDuration / multiplier;
-            if (duration < 500) duration = 500;
-            
-            loopStartTime = Date.now();
-            
-            sequence.forEach(note => {
-                let playTime = note.time / multiplier;
-                let t = setTimeout(() => {
-                    if (isPlayingSequence) {
-                        playPad(note.index, true);
-                        selectPad(note.index);
-                    }
-                }, playTime);
-                sequenceTimeouts.push(t);
-            });
-
-            let nextLoop = setTimeout(playSequenceLoop, duration);
-            sequenceTimeouts.push(nextLoop);
-        }
-
-        function stopSequencePlay() {
-            isPlayingSequence = false;
-            sequenceTimeouts.forEach(t => clearTimeout(t));
-            sequenceTimeouts = [];
-        }
-
-        document.getElementById('recordSeqBtn').addEventListener('click', () => {
-            const btn = document.getElementById('recordSeqBtn');
-            if (!isRecordingSequence) {
-                isRecordingSequence = true;
-                sequence = [];
-                sequenceStartTime = Date.now();
-                btn.classList.add('recording');
-                btn.innerHTML = '<span style="font-size:1.2em">⏹️</span> Detener Grabación';
-                updateStatus('Grabando loop base (toca los pads)...');
-                stopSequencePlay();
-                document.getElementById('playSeqBtn').disabled = true;
-            } else {
-                isRecordingSequence = false;
-                sequenceDuration = Date.now() - sequenceStartTime;
-                btn.classList.remove('recording');
-                btn.innerHTML = '<span style="font-size:1.2em">⏺️</span> Grabar Loop';
-                
-                if (sequence.length > 0) {
-                    updateStatus(`Loop grabado base (${sequence.length} toques)`);
-                    document.getElementById('playSeqBtn').disabled = false;
-                } else {
-                    updateStatus('Loop vacío');
-                }
-            }
-        });
-
-        document.getElementById('playSeqBtn').addEventListener('click', () => {
-            if (sequence.length === 0) return;
-            const btn = document.getElementById('playSeqBtn');
-            if (!isPlayingSequence) {
-                isPlayingSequence = true;
-                btn.style.background = 'var(--accent-color)';
-                btn.style.color = '#000';
-                btn.innerHTML = '<span style="font-size:1.2em">⏹️</span> Parar Loop';
-                updateStatus('Reproduciendo loop (Toca pads para Overdub)');
-                playSequenceLoop();
-            } else {
-                stopSequencePlay();
-                btn.style.background = 'var(--btn-bg)';
-                btn.style.color = 'white';
-                btn.innerHTML = '<span style="font-size:1.2em">▶️</span> Reproducir Loop';
-                updateStatus('Loop detenido');
-            }
-        });
-
         document.getElementById('tempoBtn').addEventListener('click', () => {
             tempoLevel++;
             if (tempoLevel > 10) tempoLevel = 1;
             document.getElementById('tempoBtn').innerHTML = `<span style="font-size:1.2em">⏱️</span> Tempo: ${tempoLevel}`;
             
-            if (isPlayingSequence) {
-                stopSequencePlay();
-                isPlayingSequence = true;
-                playSequenceLoop();
+            let rate = getTempoMultiplier();
+            for(let i=0; i<TOTAL_PADS; i++) {
+                if (activeLoopSources[i] && activeLoopSources[i].playbackRate) {
+                    activeLoopSources[i].playbackRate.value = rate;
+                }
             }
         });
 
