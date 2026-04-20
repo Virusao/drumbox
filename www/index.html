@@ -351,9 +351,9 @@
     </div>
 
     <!-- Modal for image -->
-    <div id="imageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center;">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/M%C3%B3ra_d%27Ebre_-_pont_i_poble.JPG/800px-M%C3%B3ra_d%27Ebre_-_pont_i_poble.JPG" alt="Puente de Mora d'Ebre" style="max-width: 90%; max-height: 80%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
-        <button id="closeModalBtn" style="margin-top: 20px; background: var(--btn-bg); color: white; border: 1px solid rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif;">Cerrar</button>
+    <div id="imageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; align-items: center; justify-content: center;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/M%C3%B3ra_d%27Ebre_-_pont_i_poble.JPG/800px-M%C3%B3ra_d%27Ebre_-_pont_i_poble.JPG" alt="Puente de Mora d'Ebre" style="width: 100%; height: 100%; object-fit: contain;">
+        <button id="closeModalBtn" style="position: absolute; bottom: 30px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.5); padding: 15px 30px; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 1.2rem; backdrop-filter: blur(5px);">Cerrar</button>
     </div>
 
     <h1>🥁 Drumbox</h1>
@@ -378,6 +378,12 @@
                 </button>
                 <button id="stopBtn" class="btn" disabled>
                     <span style="font-size:1.2em">⏹</span> Detener
+                </button>
+                <button id="loopBtn" class="btn">
+                    <span style="font-size:1.2em">🔁</span> Loop
+                </button>
+                <button id="recordLoopBtn" class="btn record">
+                    <span style="font-size:1.2em">⏺️</span> Grabar Loop
                 </button>
             </div>
 
@@ -411,6 +417,11 @@
         let selectedPadIndex = 0;
         let mediaRecorder = null;
         let recordedChunks = [];
+        let streamDest = null;
+        let loopRecorder = null;
+        let loopChunks = [];
+        let loopInterval = null;
+        let isLooping = false;
 
         // Nuevo mapeo de teclado: matriz 4x4 (1234, qwer, asdf, zxcv)
         const keyMap = {
@@ -433,6 +444,8 @@
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 masterGain = audioContext.createGain();
                 masterGain.connect(audioContext.destination);
+                streamDest = audioContext.createMediaStreamDestination();
+                masterGain.connect(streamDest);
                 masterGain.gain.value = 0.8;
                 await loadDefaultKit();
             }
@@ -636,6 +649,64 @@
                 recordBtn.disabled = false;
                 recordBtn.classList.remove('recording');
                 stopBtn.disabled = true;
+            }
+        });
+
+        document.getElementById('loopBtn').addEventListener('click', () => {
+            if (!audioContext) return;
+            isLooping = !isLooping;
+            const btn = document.getElementById('loopBtn');
+            if (isLooping) {
+                btn.style.background = 'var(--accent-color)';
+                btn.style.color = '#000';
+                updateStatus('Loop activado');
+                
+                // Generar un ritmo aleatorio con los pads que tienen sonido
+                loopInterval = setInterval(() => {
+                    const availablePads = buffers.map((b, i) => b ? i : -1).filter(i => i !== -1);
+                    if(availablePads.length > 0) {
+                        const randomPad = availablePads[Math.floor(Math.random() * availablePads.length)];
+                        playPad(randomPad);
+                        selectPad(randomPad);
+                    }
+                }, 250); // 16ths at 60BPM approx
+            } else {
+                btn.style.background = 'var(--btn-bg)';
+                btn.style.color = 'white';
+                updateStatus('Loop desactivado');
+                clearInterval(loopInterval);
+            }
+        });
+
+        document.getElementById('recordLoopBtn').addEventListener('click', () => {
+            if (!audioContext || !streamDest) return;
+            const btn = document.getElementById('recordLoopBtn');
+            
+            if (!loopRecorder || loopRecorder.state === 'inactive') {
+                loopChunks = [];
+                loopRecorder = new MediaRecorder(streamDest.stream);
+                loopRecorder.ondataavailable = e => { if (e.data.size > 0) loopChunks.push(e.data); };
+                loopRecorder.onstop = () => {
+                    const blob = new Blob(loopChunks, { type: 'audio/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'drumbox_loop.webm';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                    }, 100);
+                    updateStatus('Loop guardado');
+                };
+                loopRecorder.start();
+                btn.classList.add('recording');
+                updateStatus('Grabando loop generado...');
+            } else {
+                loopRecorder.stop();
+                btn.classList.remove('recording');
             }
         });
 
