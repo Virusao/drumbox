@@ -158,17 +158,18 @@
         .controls {
             background: rgba(0, 0, 0, 0.2);
             border-radius: 16px;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 10px;
             border: 1px solid rgba(255,255,255,0.02);
         }
 
         .control-row {
             display: flex;
             align-items: center;
-            gap: 15px;
+            justify-content: center;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
@@ -176,15 +177,15 @@
             background: var(--btn-bg);
             color: white;
             border: 1px solid rgba(255,255,255,0.05);
-            padding: 12px 20px;
+            padding: 10px 15px;
             border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             transition: all 0.2s;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn:hover:not(:disabled) {
@@ -352,8 +353,8 @@
 
     <!-- Modal for image -->
     <div id="imageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; align-items: center; justify-content: center;">
-        <img src="assets/puente_mora.jpg" alt="Puente de Mora d'Ebre" style="width: 100%; height: 100%; object-fit: contain;">
-        <button id="closeModalBtn" style="position: absolute; bottom: 30px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.5); padding: 15px 30px; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 1.2rem; backdrop-filter: blur(5px);">Cerrar</button>
+        <iframe src="https://www.catalunya.com/es/continguts/territori/mora-debre-2-1-430939" style="width: 100%; height: 100%; border: none;"></iframe>
+        <button id="closeModalBtn" style="position: absolute; bottom: 30px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.5); padding: 15px 30px; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 1.2rem; backdrop-filter: blur(5px);">Cerrar</button>
     </div>
 
     <h1>🥁 Drumbox</h1>
@@ -374,22 +375,22 @@
                 </div>
                 
                 <button id="recordBtn" class="btn record">
-                    <span style="font-size:1.2em">🎤</span> Grabar Micrófono
+                    <span style="font-size:1.2em">🎤</span> Grabar Mic
                 </button>
                 <button id="stopBtn" class="btn" disabled>
                     <span style="font-size:1.2em">⏹</span> Detener Mic
                 </button>
                 <button id="recordSeqBtn" class="btn record">
-                    <span style="font-size:1.2em">⏺️</span> Grabar Secuencia
+                    <span style="font-size:1.2em">⏺️</span> Grabar Loop
                 </button>
                 <button id="playSeqBtn" class="btn" disabled>
-                    <span style="font-size:1.2em">▶️</span> Loop
+                    <span style="font-size:1.2em">▶️</span> Reproducir Loop
                 </button>
                 <button id="tempoBtn" class="btn">
                     <span style="font-size:1.2em">⏱️</span> Tempo: 5
                 </button>
                 <button id="recordLoopBtn" class="btn record">
-                    <span style="font-size:1.2em">💾</span> Guardar Loop
+                    <span style="font-size:1.2em">💾</span> Guardar Audio
                 </button>
             </div>
 
@@ -434,6 +435,7 @@
         let isPlayingSequence = false;
         let sequenceTimeouts = [];
         let tempoLevel = 5;
+        let loopStartTime = 0;
 
         // Nuevo mapeo de teclado: matriz 4x4 (1234, qwer, asdf, zxcv)
         const keyMap = {
@@ -443,12 +445,12 @@
             'z': 12, 'x': 13, 'c': 14, 'v': 15
         };
 
-        // Sonidos por defecto (Kit estándar 808/909 style)
+        // Sonidos por defecto (Kit estándar + voces líricas)
         const defaultSounds = [
             'kick.wav', 'kick2.wav', 'snare.wav', 'snare2.wav',
             'hihat.wav', 'hihat2.wav', 'openhat.wav', 'openhat2.wav',
-            'tom.wav', 'tom2.wav', 'boom.wav', 'tink.wav',
-            'clap.wav', 'clap2.wav', 'ride.wav', 'ride2.wav'
+            'tom.wav', 'tom2.wav', 'boom.wav', 'lirica1.wav',
+            'lirica2.wav', 'lirica3.wav', 'lirica4.wav', 'lirica5.wav'
         ];
 
         async function initAudio() {
@@ -542,7 +544,7 @@
             document.getElementById('selectedPad').textContent = `Pad ${index + 1}`;
         }
 
-        function playPad(index) {
+        function playPad(index, isFromSequencer = false) {
             if (!audioContext || !buffers[index]) return;
             
             const source = audioContext.createBufferSource();
@@ -556,8 +558,18 @@
             pad.classList.add('active');
             setTimeout(() => pad.classList.remove('active'), 150);
 
-            if (isRecordingSequence) {
-                sequence.push({ index: index, time: Date.now() - sequenceStartTime });
+            if (!isFromSequencer) {
+                if (isRecordingSequence) {
+                    sequence.push({ index: index, time: Date.now() - sequenceStartTime });
+                } else if (isPlayingSequence) {
+                    // Overdub: Añadir al loop activo
+                    let multiplier = getTempoMultiplier();
+                    let duration = sequenceDuration / multiplier;
+                    if (duration < 500) duration = 500;
+                    let loopPos = (Date.now() - loopStartTime) % duration;
+                    let originalTime = loopPos * multiplier;
+                    sequence.push({ index: index, time: originalTime });
+                }
             }
         }
 
@@ -678,11 +690,13 @@
             let duration = sequenceDuration / multiplier;
             if (duration < 500) duration = 500;
             
+            loopStartTime = Date.now();
+            
             sequence.forEach(note => {
                 let playTime = note.time / multiplier;
                 let t = setTimeout(() => {
                     if (isPlayingSequence) {
-                        playPad(note.index);
+                        playPad(note.index, true);
                         selectPad(note.index);
                     }
                 }, playTime);
@@ -706,21 +720,21 @@
                 sequence = [];
                 sequenceStartTime = Date.now();
                 btn.classList.add('recording');
-                btn.innerHTML = '<span style="font-size:1.2em">⏹️</span> Detener Secuencia';
-                updateStatus('Grabando secuencia (toca los pads)...');
+                btn.innerHTML = '<span style="font-size:1.2em">⏹️</span> Detener Grabación';
+                updateStatus('Grabando loop base (toca los pads)...');
                 stopSequencePlay();
                 document.getElementById('playSeqBtn').disabled = true;
             } else {
                 isRecordingSequence = false;
                 sequenceDuration = Date.now() - sequenceStartTime;
                 btn.classList.remove('recording');
-                btn.innerHTML = '<span style="font-size:1.2em">⏺️</span> Grabar Secuencia';
+                btn.innerHTML = '<span style="font-size:1.2em">⏺️</span> Grabar Loop';
                 
                 if (sequence.length > 0) {
-                    updateStatus(`Secuencia guardada (${sequence.length} toques)`);
+                    updateStatus(`Loop grabado base (${sequence.length} toques)`);
                     document.getElementById('playSeqBtn').disabled = false;
                 } else {
-                    updateStatus('Secuencia vacía');
+                    updateStatus('Loop vacío');
                 }
             }
         });
@@ -733,13 +747,13 @@
                 btn.style.background = 'var(--accent-color)';
                 btn.style.color = '#000';
                 btn.innerHTML = '<span style="font-size:1.2em">⏹️</span> Parar Loop';
-                updateStatus('Reproduciendo loop...');
+                updateStatus('Reproduciendo loop (Toca pads para Overdub)');
                 playSequenceLoop();
             } else {
                 stopSequencePlay();
                 btn.style.background = 'var(--btn-bg)';
                 btn.style.color = 'white';
-                btn.innerHTML = '<span style="font-size:1.2em">▶️</span> Loop';
+                btn.innerHTML = '<span style="font-size:1.2em">▶️</span> Reproducir Loop';
                 updateStatus('Loop detenido');
             }
         });
