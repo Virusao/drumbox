@@ -345,6 +345,15 @@
     <div id="initOverlay">
         <h1 style="margin-bottom: 40px; font-size: 3rem;">🥁 Drumbox</h1>
         <button class="start-btn" id="startBtn">TOCAR PARA EMPEZAR</button>
+        <p style="margin-top: 30px; font-size: 1.1rem; color: var(--text-dim);">
+            Autor Pedro J. Ros en <span id="moraLink" style="color: var(--accent-color); cursor: pointer; text-decoration: underline;">Mora d'Ebre</span>.
+        </p>
+    </div>
+
+    <!-- Modal for image -->
+    <div id="imageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/M%C3%B3ra_d%27Ebre_-_pont_i_poble.JPG/800px-M%C3%B3ra_d%27Ebre_-_pont_i_poble.JPG" alt="Puente de Mora d'Ebre" style="max-width: 90%; max-height: 80%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+        <button id="closeModalBtn" style="margin-top: 20px; background: var(--btn-bg); color: white; border: 1px solid rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif;">Cerrar</button>
     </div>
 
     <h1>🥁 Drumbox</h1>
@@ -551,6 +560,16 @@
         }
 
         // Eventos
+        document.getElementById('moraLink').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('imageModal').style.display = 'flex';
+        });
+
+        document.getElementById('closeModalBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('imageModal').style.display = 'none';
+        });
+
         document.getElementById('startBtn').addEventListener('click', () => {
             initAudio().then(() => {
                 document.getElementById('initOverlay').style.opacity = '0';
